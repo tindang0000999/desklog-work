@@ -11,7 +11,7 @@
   let sessionUser = null;
   let rows = [];
   let editingId = null;
-  const fields = ['work_date', 'site', 'unit', 'category', 'title', 'notes', 'status'];
+  const fields = ['work_date', 'person_name', 'site', 'unit', 'category', 'title', 'notes', 'status'];
   const showError = (message) => { $('errorNotice').textContent = message; $('errorNotice').hidden = !message; };
   function showAuth(user) {
     sessionUser = user;
@@ -24,7 +24,7 @@
   }
   async function load() {
     if (!sessionUser) return;
-    const { data, error } = await client.from('work_items').select('id,owner_id,work_date,site,unit,category,title,notes,status,created_at').order('work_date', { ascending: false }).limit(2000);
+    const { data, error } = await client.from('work_items').select('id,owner_id,work_date,person_name,site,unit,category,title,notes,status,created_at').order('work_date', { ascending: false }).limit(2000);
     if (error) { showError('Không thể tải công việc. Kiểm tra bảng và RLS trong Supabase.'); return; }
     rows = data || [];
     render();
@@ -35,7 +35,7 @@
       (!$('siteFilter').value || item.site === $('siteFilter').value) &&
       (!$('categoryFilter').value || item.category === $('categoryFilter').value) &&
       (!$('statusFilter').value || item.status === $('statusFilter').value) &&
-      (!q || [item.title, item.notes, item.unit].join(' ').toLocaleLowerCase('vi').includes(q))
+      (!q || [item.title, item.notes, item.person_name, item.unit].join(' ').toLocaleLowerCase('vi').includes(q))
     );
   }
   function render() {
@@ -58,7 +58,7 @@
     $('items').innerHTML = list.map(item => {
       const [y,m,d] = item.work_date.split('-');
       const statusClass = item.status === 'Hoàn thành' ? 'done' : item.status === 'Đang xử lý' ? 'progress' : 'new';
-      return `<tr><td>${d}/${m}/${y}</td><td>${escapeHtml(item.unit)}</td><td><b>${escapeHtml(item.site)}</b></td><td><span class="tag ${item.category === 'Phần mềm' ? 'soft' : ''}">${escapeHtml(item.category)}</span></td><td><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.notes)}</small></td><td class="status ${statusClass}">${escapeHtml(item.status)}</td><td><div class="actions"><button type="button" data-edit="${item.id}" aria-label="Sửa">✎</button><button type="button" data-delete="${item.id}" aria-label="Xóa">×</button></div></td></tr>`;
+      return `<tr><td>${d}/${m}/${y}</td><td>${escapeHtml(item.person_name || 'Chưa ghi họ tên')}</td><td>${escapeHtml(item.unit)}</td><td><b>${escapeHtml(item.site)}</b></td><td><span class="tag ${item.category === 'Phần mềm' ? 'soft' : ''}">${escapeHtml(item.category)}</span></td><td><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.notes)}</small></td><td class="status ${statusClass}">${escapeHtml(item.status)}</td><td><div class="actions"><button type="button" data-edit="${item.id}" aria-label="Sửa">✎</button><button type="button" data-delete="${item.id}" aria-label="Xóa">×</button></div></td></tr>`;
     }).join('');
     $('empty').hidden = n > 0;
   }
@@ -96,9 +96,10 @@
     if (!sessionUser) return;
     $('formError').textContent = '';
     const values = Object.fromEntries(new FormData(event.target));
+    values.person_name = values.person_name.trim();
     values.title = values.title.trim();
     values.notes = values.notes.trim();
-    if (!values.title || !values.site || !values.unit || !values.category) return;
+    if (!values.person_name || !values.title || !values.site || !values.unit || !values.category) return;
     const query = editingId ? client.from('work_items').update(values).eq('id', editingId).eq('owner_id', sessionUser.id) : client.from('work_items').insert({ ...values, owner_id: sessionUser.id });
     const { error } = await query;
     if (error) { $('formError').textContent = 'Không thể lưu. Kiểm tra quyền tài khoản hoặc cấu hình RLS.'; return; }
