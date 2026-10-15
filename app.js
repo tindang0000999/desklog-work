@@ -25,7 +25,7 @@
   async function load() {
     if (!sessionUser) return;
     const { data, error } = await client.from('work_items').select('id,owner_id,work_date,person_name,site,unit,category,title,notes,status,created_at').order('work_date', { ascending: false }).limit(2000);
-    if (error) { showError('Không thể tải công việc. Kiểm tra bảng và RLS trong Supabase.'); return; }
+    if (error) { console.error('Load error:', error); showError('Lỗi tải: ' + (error.message || error.details || JSON.stringify(error))); return; }
     rows = data || [];
     render();
   }
