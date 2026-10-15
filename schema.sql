@@ -4,6 +4,7 @@ create table if not exists public.work_items (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
   work_date date not null,
+  person_name text check (person_name is null or char_length(btrim(person_name)) between 1 and 120),
   site text not null check (site in ('DBP', '120HB', 'D2')),
   unit text not null check (char_length(unit) between 1 and 120),
   category text not null check (category in ('Phần cứng', 'Phần mềm')),
