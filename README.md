@@ -5,7 +5,7 @@
 ## Người sở hữu thực hiện trên Supabase
 
 1. Tạo một **project mới** ở https://supabase.com/dashboard (không gửi mật khẩu tài khoản Supabase cho agent).
-2. Trong **SQL Editor**, chạy nguyên file [`schema.sql`](schema.sql). Bảng `work_items` chỉ grant cho role `authenticated`, RLS bắt buộc `owner_id = auth.uid()` cho đọc/thêm/sửa/xóa. Kiểm tra lệnh báo thành công trước khi lưu dữ liệu.
+2. Với **project mới**, trong **SQL Editor** chạy file [`schema.sql`](schema.sql). Nếu đang dùng project Desklog hiện tại, chạy [`migration_add_person_name.sql`](migration_add_person_name.sql) trước khi đưa frontend mới lên; migration thêm cột `person_name` nullable để giữ nguyên các bản ghi cũ chưa có họ tên. Cột `unit` vẫn là text. Bảng `work_items` chỉ grant cho role `authenticated`, RLS bắt buộc `owner_id = auth.uid()` cho đọc/thêm/sửa/xóa; migration không đổi các quyền này.
 3. Trong **Authentication → Users**, tạo **một người dùng email + mật khẩu** do anh tự chọn; xác nhận email nếu dự án yêu cầu. Trong **Authentication → Providers → Email**, tắt *Allow new users to sign up* sau khi tạo tài khoản để không ai tự đăng ký. Đừng gửi mật khẩu qua chat.
 4. Trong **Authentication → URL Configuration**, đặt Site URL / Redirect URL trỏ đến link Desklog sau khi xuất bản.
 5. Cung cấp cho agent **Project URL** dạng `https://<project-ref>.supabase.co` và **publishable key** dạng `sb_publishable_...` (đây là khóa công khai dành cho frontend), hoặc tự điền hai giá trị đó vào [`config.js`](config.js). Không bao giờ sử dụng `sb_secret_...` ở frontend.
