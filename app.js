@@ -93,18 +93,46 @@
   $('closeEditor').onclick = () => $('editor').close();
   $('itemForm').addEventListener('submit', async event => {
     event.preventDefault();
-    if (!sessionUser) return;
+    if (!sessionUser) {
+      $('formError').textContent = 'Phiên đăng nhập hết hạn. Vui lòng tải lại trang và đăng nhập lại.';
+      return;
+    }
     $('formError').textContent = '';
     const values = Object.fromEntries(new FormData(event.target));
-    values.person_name = values.person_name.trim();
-    values.title = values.title.trim();
-    values.notes = values.notes.trim();
-    if (!values.person_name || !values.title || !values.site || !values.unit || !values.category) return;
-    const query = editingId ? client.from('work_items').update(values).eq('id', editingId).eq('owner_id', sessionUser.id) : client.from('work_items').insert({ ...values, owner_id: sessionUser.id });
-    const { error } = await query;
-    if (error) { $('formError').textContent = 'Không thể lưu. Kiểm tra quyền tài khoản hoặc cấu hình RLS.'; return; }
-    $('editor').close();
-    await load();
+    
+    // Normalize fields
+    const person = (values.requester_name || values.person_name || '').trim();
+    values.person_name = person;
+    values.requester_name = person;
+    values.target_role = (values.target_role || 'Nhân viên').trim();
+    values.title = (values.title || '').trim();
+    values.notes = (values.notes || '').trim();
+
+    if (!person || !values.title || !values.site || !values.unit || !values.category) {
+      $('formError').textContent = 'Vui lòng điền đầy đủ các mục bắt buộc.';
+      return;
+    }
+
+    const saveBtn = event.target.querySelector('button[type="submit"]');
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Đang lưu...'; }
+
+    try {
+      const payload = { ...values, owner_id: sessionUser.id };
+      const query = editingId ? client.from('work_items').update(payload).eq('id', editingId) : client.from('work_items').insert(payload);
+      const { data, error } = await query;
+      if (error) {
+        console.error('Save error:', error);
+        $('formError').textContent = 'Lỗi lưu: ' + (error.message || JSON.stringify(error));
+        return;
+      }
+      $('editor').close();
+      await load();
+    } catch (err) {
+      console.error('Save exception:', err);
+      $('formError').textContent = 'Lỗi hệ thống: ' + err.message;
+    } finally {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Lưu công việc'; }
+    }
   });
   $('items').addEventListener('click', async event => {
     const edit = event.target.closest('[data-edit]');
