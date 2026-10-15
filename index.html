@@ -10,14 +10,14 @@
 <section id="dashboard" hidden><div class="filters"><input id="search" type="search" aria-label="Tìm công việc" placeholder="Tìm công việc / ghi chú…"><select id="siteFilter" aria-label="Lọc cơ sở"><option value="">Tất cả cơ sở</option><option>DBP</option><option>120HB</option><option>D2</option></select><select id="categoryFilter" aria-label="Lọc loại hỗ trợ"><option value="">Mọi loại hỗ trợ</option><option>Phần cứng</option><option>Phần mềm</option></select><select id="statusFilter" aria-label="Lọc trạng thái"><option value="">Mọi trạng thái</option><option>Mới tiếp nhận</option><option>Đang xử lý</option><option>Hoàn thành</option></select><button class="btn" id="add">＋ Ghi công việc</button></div>
 <div class="tiles"><div class="tile"><span>Công việc đang xem</span><strong id="count">0</strong></div><div class="tile"><span>Hoàn thành</span><strong id="done">0</strong></div><div class="tile"><span>Đang xử lý</span><strong id="progress">0</strong></div><div class="tile"><span>Cơ sở có việc</span><strong id="sites">0</strong></div></div>
 <div class="visuals"><section class="panel"><h2>Khối lượng theo cơ sở</h2><div class="chart" id="siteChart"></div></section><section class="panel"><h2>Loại hỗ trợ</h2><div class="split"><div class="ring" id="ring" data-total="0"></div><div class="legend"><div><i class="dot"></i>Phần cứng <b id="hard">0</b></div><div><i class="dot gold"></i>Phần mềm <b id="soft">0</b></div></div></div></section></div>
-<section class="panel"><div class="row"><h2>Nhật ký hỗ trợ</h2><span class="muted" id="resultCount"></span></div><div class="tablewrap"><table class="table"><thead><tr><th>Ngày</th><th>Đơn vị</th><th>Cơ sở</th><th>Loại</th><th>Công việc / Ghi chú</th><th>Trạng thái</th><th></th></tr></thead><tbody id="items"></tbody></table></div><p class="muted" id="empty" hidden>Chưa có công việc theo bộ lọc hiện tại.</p></section><p class="foot">Dữ liệu được lưu trong dự án Supabase của anh, có kiểm soát quyền theo tài khoản đăng nhập. Không có dữ liệu công việc trong mã GitHub.</p></section></main>
-<dialog id="editor"><div class="dialogtop"><div class="row"><h2 id="editorTitle">Ghi công việc</h2><button class="btn secondary" id="closeEditor" type="button">Đóng</button></div></div><form id="itemForm" class="formpad"><div class="formgrid"><label class="field">Ngày<input name="work_date" type="date" required></label><label class="field">Cơ sở<select name="site" required><option value="">Chọn cơ sở</option><option>DBP</option><option>120HB</option><option>D2</option></select></label><label class="field">Đơn vị<select name="unit" required><option value="">Chọn đơn vị</option>
-<optgroup label="Khối Lãnh đạo &amp; Pháp chế">
+<section class="panel"><div class="row"><h2>Nhật ký hỗ trợ</h2><span class="muted" id="resultCount"></span></div><div class="tablewrap"><table class="table"><thead><tr><th>Ngày</th><th>Người được hỗ trợ</th><th>Đối tượng</th><th>Đơn vị</th><th>Cơ sở</th><th>Loại</th><th>Công việc / Ghi chú</th><th>Trạng thái</th><th></th></tr></thead><tbody id="items"></tbody></table></div><p class="muted" id="empty" hidden>Chưa có công việc theo bộ lọc hiện tại.</p></section><p class="foot">Dữ liệu được lưu trong dự án Supabase của anh, có kiểm soát quyền theo tài khoản đăng nhập. Không có dữ liệu công việc trong mã GitHub.</p></section></main>
+<dialog id="editor"><div class="dialogtop"><div class="row"><h2 id="editorTitle">Ghi công việc</h2><button class="btn secondary" id="closeEditor" type="button">Đóng</button></div></div><form id="itemForm" class="formpad"><div class="formgrid"><label class="field">Ngày<input name="work_date" type="date" required></label><label class="field">Đối tượng<select name="target_role" required><option value="Nhân viên">Nhân viên</option><option value="Giảng viên">Giảng viên</option><option value="Sinh viên">Sinh viên</option><option value="Khác">Khác</option></select></label><label class="field wide">Họ tên người được hỗ trợ<input name="requester_name" type="text" maxlength="120" placeholder="Ví dụ: Nguyễn Văn A" required></label><label class="field">Cơ sở<select name="site" required><option value="">Chọn cơ sở</option><option>DBP</option><option>120HB</option><option>D2</option></select></label><label class="field">Đơn vị<select name="unit" required><option value="">Chọn đơn vị</option>
+
 <option>Ban Giám Hiệu</option>
 <option>Hội Đồng Trường</option>
 <option>Pháp Chế</option>
-</optgroup>
-<optgroup label="Phòng / Ban chức năng">
+
+
 <option>Phòng Công nghệ thông tin</option>
 <option>Phòng Hành chính - Nhân sự</option>
 <option>Phòng Tài chính - Kế toán</option>
@@ -25,8 +25,8 @@
 <option>Phòng Khảo thí - Đảm bảo chất lượng</option>
 <option>Phòng Quản lý Cơ sở vật chất</option>
 <option>Phòng Quản lý Khoa học - Tạp chí Khoa học</option>
-</optgroup>
-<optgroup label="Khoa đào tạo">
+
+
 <option>Khoa Y</option>
 <option>Khoa Răng Hàm Mặt</option>
 <option>Khoa Dược</option>
@@ -38,8 +38,8 @@
 <option>Khoa Khoa học Xã hội &amp; Nhân văn</option>
 <option>Khoa Ngôn ngữ và văn hóa quốc tế</option>
 <option>MT PHÒNG MÁY</option>
-</optgroup>
-<optgroup label="Trung tâm &amp; Viện">
+
+
 <option>Trung tâm Tuyển sinh - Truyền thông</option>
 <option>Trung tâm việc làm và trải nghiệm sinh viên</option>
 <option>Trung tâm thông tin - Thư viện</option>
@@ -48,7 +48,7 @@
 <option>Viện Đào tạo trực tuyến</option>
 <option>Viện Đào tạo và Hợp tác quốc tế</option>
 <option>Công Ty Tnhh Dịch Vụ Y Nha Dược Hồng Bàng</option>
-</optgroup>
+
 </select></label><label class="field">Loại hỗ trợ<select name="category" required><option value="">Chọn loại</option><option>Phần cứng</option><option>Phần mềm</option></select></label><label class="field wide">Tiêu đề công việc<input name="title" maxlength="120" required></label><label class="field wide">Ghi chú<textarea name="notes" maxlength="2000"></textarea></label><label class="field wide">Trạng thái<select name="status"><option>Mới tiếp nhận</option><option>Đang xử lý</option><option>Hoàn thành</option></select></label></div><p class="message" id="formError" role="alert"></p><div class="row"><span class="muted">Dữ liệu riêng tư, lưu trên Supabase.</span><button class="btn" type="submit">Lưu công việc</button></div></form></dialog>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script><script src="./config.js"></script><script src="./app.js"></script>
 </body></html>
