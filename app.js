@@ -66,6 +66,13 @@
     editingId = item?.id || null;
     const form = $('itemForm');
     form.reset();
+    const unitSelect = form.elements.unit;
+    unitSelect.querySelectorAll('[data-legacy-option]').forEach(option => option.remove());
+    if (item?.unit && !Array.from(unitSelect.options).some(option => option.value === item.unit)) {
+      const option = new Option(`${item.unit} (đơn vị cũ)`, item.unit);
+      option.dataset.legacyOption = 'true';
+      unitSelect.add(option);
+    }
     form.elements.work_date.value = item?.work_date || new Date().toLocaleDateString('en-CA');
     if (item) for (const key of fields.filter(x => x !== 'work_date')) form.elements[key].value = item[key] ?? '';
     $('editorTitle').textContent = item ? 'Sửa công việc' : 'Ghi công việc';
