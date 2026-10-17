@@ -11,7 +11,7 @@
   let sessionUser = null;
   let rows = [];
   let editingId = null;
-  const fields = ['work_date', 'person_name', 'site', 'unit', 'category', 'title', 'notes', 'status'];
+  const fields = ['work_date', 'target_role', 'person_name', 'site', 'unit', 'category', 'title', 'notes', 'status'];
   const showError = (message) => { $('errorNotice').textContent = message; $('errorNotice').hidden = !message; };
   function showAuth(user) {
     sessionUser = user;
@@ -24,7 +24,7 @@
   }
   async function load() {
     if (!sessionUser) return;
-    const { data, error } = await client.from('work_items').select('id,owner_id,work_date,person_name,site,unit,category,title,notes,status,created_at').order('work_date', { ascending: false }).limit(2000);
+    const { data, error } = await client.from('work_items').select('id,owner_id,work_date,person_name,target_role,site,unit,category,title,notes,status,created_at').order('work_date', { ascending: false }).limit(2000);
     if (error) { console.error('Load error:', error); showError('Lỗi tải: ' + (error.message || error.details || JSON.stringify(error))); return; }
     rows = data || [];
     render();
@@ -35,7 +35,7 @@
       (!$('siteFilter').value || item.site === $('siteFilter').value) &&
       (!$('categoryFilter').value || item.category === $('categoryFilter').value) &&
       (!$('statusFilter').value || item.status === $('statusFilter').value) &&
-      (!q || [item.title, item.notes, item.person_name, item.unit].join(' ').toLocaleLowerCase('vi').includes(q))
+      (!q || [item.title, item.notes, item.person_name, item.target_role, item.unit].join(' ').toLocaleLowerCase('vi').includes(q))
     );
   }
   function render() {
@@ -58,7 +58,7 @@
     $('items').innerHTML = list.map(item => {
       const [y,m,d] = item.work_date.split('-');
       const statusClass = item.status === 'Hoàn thành' ? 'done' : item.status === 'Đang xử lý' ? 'progress' : 'new';
-      return `<tr><td>${d}/${m}/${y}</td><td>${escapeHtml(item.person_name || 'Chưa ghi họ tên')}</td><td>${escapeHtml(item.unit)}</td><td><b>${escapeHtml(item.site)}</b></td><td><span class="tag ${item.category === 'Phần mềm' ? 'soft' : ''}">${escapeHtml(item.category)}</span></td><td><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.notes)}</small></td><td class="status ${statusClass}">${escapeHtml(item.status)}</td><td><div class="actions"><button type="button" data-edit="${item.id}" aria-label="Sửa">✎</button><button type="button" data-delete="${item.id}" aria-label="Xóa">×</button></div></td></tr>`;
+      return `<tr><td>${d}/${m}/${y}</td><td>${escapeHtml(item.person_name || 'Chưa ghi họ tên')}</td><td>${escapeHtml(item.target_role || 'Chưa ghi')}</td><td>${escapeHtml(item.unit)}</td><td><b>${escapeHtml(item.site)}</b></td><td><span class="tag ${item.category === 'Phần mềm' ? 'soft' : ''}">${escapeHtml(item.category)}</span></td><td><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.notes)}</small></td><td class="status ${statusClass}">${escapeHtml(item.status)}</td><td><div class="actions"><button type="button" data-edit="${item.id}" aria-label="Sửa">✎</button><button type="button" data-delete="${item.id}" aria-label="Xóa">×</button></div></td></tr>`;
     }).join('');
     $('empty').hidden = n > 0;
   }
@@ -74,7 +74,20 @@
       unitSelect.add(option);
     }
     form.elements.work_date.value = item?.work_date || new Date().toLocaleDateString('en-CA');
-    if (item) for (const key of fields.filter(x => x !== 'work_date')) form.elements[key].value = item[key] ?? '';
+    if (item) {
+      for (const key of fields.filter(x => x !== 'work_date')) {
+        if (form.elements[key]) {
+          form.elements[key].value = item[key] ?? '';
+        }
+      }
+      // Populate person_name from either field if present
+      if (form.elements.person_name) {
+        form.elements.person_name.value = item.person_name || item.requester_name || '';
+      }
+      if (form.elements.target_role) {
+        form.elements.target_role.value = item.target_role || 'Nhân viên';
+      }
+    }
     $('editorTitle').textContent = item ? 'Sửa công việc' : 'Ghi công việc';
     $('formError').textContent = '';
     $('editor').showModal();
@@ -90,6 +103,37 @@
   });
   $('signout').onclick = async () => { await client.auth.signOut(); };
   $('add').onclick = () => openEditor();
+  $('exportExcel').addEventListener('click', () => {
+    const XLSX = window.XLSX;
+    if (!XLSX?.utils?.json_to_sheet || !XLSX?.utils?.book_new || !XLSX?.utils?.book_append_sheet || !XLSX?.writeFile) {
+      showError('Không tải được thư viện Excel. Kiểm tra kết nối mạng rồi tải lại trang.');
+      return;
+    }
+    const list = filtered();
+    if (!list.length) { showError('Không có công việc đang lọc để xuất.'); return; }
+    showError('');
+    const exportRows = list.map(item => ({
+      'Ngày': item.work_date || '',
+      'Họ tên người được hỗ trợ': item.person_name || '',
+      'Đối tượng': item.target_role || '',
+      'Đơn vị': item.unit || '',
+      'Cơ sở': item.site || '',
+      'Loại hỗ trợ': item.category || '',
+      'Tiêu đề công việc': item.title || '',
+      'Ghi chú': item.notes || '',
+      'Trạng thái': item.status || ''
+    }));
+    try {
+      const worksheet = XLSX.utils.json_to_sheet(exportRows);
+      worksheet['!cols'] = [{wch:14},{wch:28},{wch:16},{wch:36},{wch:10},{wch:16},{wch:32},{wch:42},{wch:18}];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Nhật ký hỗ trợ');
+      XLSX.writeFile(workbook, `desklog-${new Date().toISOString().slice(0,10)}.xlsx`, { bookType: 'xlsx', compression: true });
+    } catch (error) {
+      console.error('Export error:', error);
+      showError('Không thể tạo file Excel. Vui lòng thử lại.');
+    }
+  });
   $('closeEditor').onclick = () => $('editor').close();
   $('itemForm').addEventListener('submit', async event => {
     event.preventDefault();
@@ -101,14 +145,12 @@
     const values = Object.fromEntries(new FormData(event.target));
     
     // Normalize fields
-    const person = (values.requester_name || values.person_name || '').trim();
-    values.person_name = person;
-    values.requester_name = person;
-    values.target_role = (values.target_role || 'Nhân viên').trim();
+    values.person_name = (values.person_name || '').trim();
+    values.target_role = (values.target_role || '').trim();
     values.title = (values.title || '').trim();
     values.notes = (values.notes || '').trim();
 
-    if (!person || !values.title || !values.site || !values.unit || !values.category) {
+    if (!values.person_name || !values.target_role || !values.title || !values.site || !values.unit || !values.category) {
       $('formError').textContent = 'Vui lòng điền đầy đủ các mục bắt buộc.';
       return;
     }
