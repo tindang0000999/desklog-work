@@ -57,8 +57,23 @@
     }).join('');
     $('items').innerHTML = list.map(item => {
       const [y,m,d] = item.work_date.split('-');
-      const statusClass = item.status === 'Hoàn thành' ? 'done' : item.status === 'Đang xử lý' ? 'progress' : 'new';
-      return `<tr><td>${d}/${m}/${y}</td><td>${escapeHtml(item.person_name || 'Chưa ghi họ tên')}</td><td>${escapeHtml(item.target_role || 'Chưa ghi')}</td><td>${escapeHtml(item.unit)}</td><td><b>${escapeHtml(item.site)}</b></td><td><span class="tag ${item.category === 'Phần mềm' ? 'soft' : ''}">${escapeHtml(item.category)}</span></td><td><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.notes)}</small></td><td class="status ${statusClass}">${escapeHtml(item.status)}</td><td><div class="actions"><button type="button" data-edit="${item.id}" aria-label="Sửa">✎</button><button type="button" data-delete="${item.id}" aria-label="Xóa">×</button></div></td></tr>`;
+      const isDone = item.status === 'Hoàn thành';
+      const statusClass = isDone ? 'done' : item.status === 'Đang xử lý' ? 'progress' : 'new';
+      const toggleBtn = isDone 
+        ? `<button type="button" class="btn-status-toggle done" data-toggle-status="${item.id}" title="Bấm để đổi sang Đang xử lý">✔ Hoàn thành</button>`
+        : `<button type="button" class="btn-status-toggle pending" data-toggle-status="${item.id}" title="Bấm 1-chạm để Hoàn thành">⏳ ${escapeHtml(item.status || 'Chưa xong')}</button>`;
+
+      return `<tr>
+        <td>${d}/${m}/${y}</td>
+        <td>${escapeHtml(item.person_name || 'Chưa ghi họ tên')}</td>
+        <td>${escapeHtml(item.target_role || 'Chưa ghi')}</td>
+        <td>${escapeHtml(item.unit)}</td>
+        <td><b>${escapeHtml(item.site)}</b></td>
+        <td><span class="tag ${item.category === 'Phần mềm' ? 'soft' : ''}">${escapeHtml(item.category)}</span></td>
+        <td><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.notes)}</small></td>
+        <td>${toggleBtn}</td>
+        <td><div class="actions"><button type="button" data-edit="${item.id}" aria-label="Sửa">✎</button><button type="button" data-delete="${item.id}" aria-label="Xóa">×</button></div></td>
+      </tr>`;
     }).join('');
     $('empty').hidden = n > 0;
   }
@@ -177,8 +192,26 @@
     }
   });
   $('items').addEventListener('click', async event => {
+    const toggle = event.target.closest('[data-toggle-status]');
     const edit = event.target.closest('[data-edit]');
     const del = event.target.closest('[data-delete]');
+
+    if (toggle && sessionUser) {
+      const item = rows.find(x => x.id === toggle.dataset.toggleStatus);
+      if (!item) return;
+      const nextStatus = item.status === 'Hoàn thành' ? 'Đang xử lý' : 'Hoàn thành';
+      toggle.disabled = true;
+      toggle.textContent = '...';
+      const { error } = await client.from('work_items').update({ status: nextStatus }).eq('id', item.id);
+      if (error) {
+        showError('Không thể đổi trạng thái: ' + error.message);
+      } else {
+        item.status = nextStatus;
+        await load();
+      }
+      return;
+    }
+
     if (edit) openEditor(rows.find(x => x.id === edit.dataset.edit));
     if (del && sessionUser && confirm('Xóa công việc này?')) {
       const { error } = await client.from('work_items').delete().eq('id', del.dataset.delete).eq('owner_id', sessionUser.id);
