@@ -11,6 +11,7 @@
   let sessionUser = null;
   let rows = [];
   let editingId = null;
+  let selectedIds = new Set();
   const fields = ['work_date', 'target_role', 'person_name', 'site', 'unit', 'category', 'title', 'notes', 'status'];
   const showError = (message) => { $('errorNotice').textContent = message; $('errorNotice').hidden = !message; };
   function showAuth(user) {
@@ -111,15 +112,29 @@
       const value = list.filter(x => x.site === site).length;
       return `<div class="barrow"><span>${site}</span><div class="track"><div class="fill ${i===1?'gold':i===2?'blue':''}" style="width:${value/max*100}%"></div></div><b>${value}</b></div>`;
     }).join('');
+
+    // Update bulk action bar
+    const selectedInList = list.filter(x => selectedIds.has(x.id)).length;
+    if ($('bulkActions')) {
+      $('bulkActions').hidden = selectedIds.size === 0;
+      $('selectedCount').textContent = selectedIds.size;
+    }
+    if ($('selectAll')) {
+      $('selectAll').checked = n > 0 && selectedInList === n;
+      $('selectAll').indeterminate = selectedInList > 0 && selectedInList < n;
+    }
+
     $('items').innerHTML = list.map(item => {
       const [y,m,d] = item.work_date.split('-');
       const isDone = item.status === 'Hoàn thành';
       const statusClass = isDone ? 'done' : item.status === 'Đang xử lý' ? 'progress' : 'new';
+      const isChecked = selectedIds.has(item.id) ? 'checked' : '';
       const toggleBtn = isDone 
         ? `<button type="button" class="btn-status-toggle done" data-toggle-status="${item.id}" title="Bấm để đổi sang Đang xử lý">✔ Hoàn thành</button>`
         : `<button type="button" class="btn-status-toggle pending" data-toggle-status="${item.id}" title="Bấm 1-chạm để Hoàn thành">⏳ ${escapeHtml(item.status || 'Chưa xong')}</button>`;
 
-      return `<tr>
+      return `<tr class="${isChecked ? 'row-selected' : ''}">
+        <td style="text-align:center"><input type="checkbox" data-select-row="${item.id}" ${isChecked} aria-label="Chọn dòng"></td>
         <td>${d}/${m}/${y}</td>
         <td>${escapeHtml(item.person_name || 'Chưa ghi họ tên')}</td>
         <td>${escapeHtml(item.target_role || 'Chưa ghi')}</td>
@@ -128,7 +143,7 @@
         <td><span class="tag ${item.category === 'Phần mềm' ? 'soft' : ''}">${escapeHtml(item.category)}</span></td>
         <td><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.notes)}</small></td>
         <td>${toggleBtn}</td>
-        <td><div class="actions"><button type="button" data-edit="${item.id}" aria-label="Sửa">✎</button><button type="button" data-delete="${item.id}" aria-label="Xóa">×</button></div></td>
+        <td><div class="actions"><button type="button" data-edit="${item.id}" aria-label="Sửa" title="Sửa">✎</button><button type="button" class="btn-delete" data-delete="${item.id}" aria-label="Xóa" title="Xóa">🗑</button></div></td>
       </tr>`;
     }).join('');
     $('empty').hidden = n > 0;
@@ -269,9 +284,84 @@
     }
 
     if (edit) openEditor(rows.find(x => x.id === edit.dataset.edit));
-    if (del && sessionUser && confirm('Xóa công việc này?')) {
-      const { error } = await client.from('work_items').delete().eq('id', del.dataset.delete).eq('owner_id', sessionUser.id);
-      if (error) showError('Không thể xóa. Kiểm tra quyền tài khoản.'); else await load();
+    if (del && sessionUser) {
+      const item = rows.find(x => x.id === del.dataset.delete);
+      const name = item ? `"${item.title || item.person_name}"` : 'mục này';
+      if (confirm(`Anh có chắc chắn muốn xóa ${name}? Thao tác này không thể hoàn tác.`)) {
+        del.disabled = true;
+        del.textContent = '...';
+        const { error } = await client.from('work_items').delete().eq('id', del.dataset.delete).eq('owner_id', sessionUser.id);
+        if (error) {
+          showError('Không thể xóa. Kiểm tra quyền tài khoản: ' + error.message);
+          del.disabled = false;
+          del.textContent = '🗑';
+        } else {
+          selectedIds.delete(del.dataset.delete);
+          await load();
+        }
+      }
+    }
+  });
+
+  // Checkbox selection handlers
+  $('items').addEventListener('change', event => {
+    const cb = event.target.closest('[data-select-row]');
+    if (!cb) return;
+    const id = cb.dataset.selectRow;
+    if (cb.checked) {
+      selectedIds.add(id);
+    } else {
+      selectedIds.delete(id);
+    }
+    const list = filtered();
+    const selectedInList = list.filter(x => selectedIds.has(x.id)).length;
+    $('bulkActions').hidden = selectedIds.size === 0;
+    $('selectedCount').textContent = selectedIds.size;
+    $('selectAll').checked = list.length > 0 && selectedInList === list.length;
+    $('selectAll').indeterminate = selectedInList > 0 && selectedInList < list.length;
+    const tr = cb.closest('tr');
+    if (tr) tr.classList.toggle('row-selected', cb.checked);
+  });
+
+  $('selectAll').addEventListener('change', event => {
+    const isChecked = event.target.checked;
+    const list = filtered();
+    if (isChecked) {
+      list.forEach(x => selectedIds.add(x.id));
+    } else {
+      list.forEach(x => selectedIds.delete(x.id));
+    }
+    render();
+  });
+
+  $('clearSelect').addEventListener('click', () => {
+    selectedIds.clear();
+    render();
+  });
+
+  $('deleteBulk').addEventListener('click', async () => {
+    if (!sessionUser || selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (!confirm(`CẢNH BÁO: Anh có chắc chắn muốn xóa vĩnh viễn ${count} mục đã chọn?\nDữ liệu đã xóa sẽ không thể phục hồi.`)) {
+      return;
+    }
+    const btn = $('deleteBulk');
+    btn.disabled = true;
+    btn.textContent = 'Đang xóa...';
+    try {
+      const idsToDelete = Array.from(selectedIds);
+      const { error } = await client.from('work_items').delete().in('id', idsToDelete).eq('owner_id', sessionUser.id);
+      if (error) {
+        showError('Lỗi xóa hàng loạt: ' + error.message);
+      } else {
+        selectedIds.clear();
+        await load();
+      }
+    } catch (err) {
+      showError('Lỗi hệ thống: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🗑 Xóa các mục đã chọn';
     }
   });
 
