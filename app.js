@@ -12,6 +12,9 @@
   let rows = [];
   let editingId = null;
   let selectedIds = new Set();
+  let currentRoleTab = '';
+  let replyingItem = null;
+  const ZALO_AUTH_TEMPLATE = "Bạn có thể vào tài khoản xác thực được rồi. Xem video xác thực nhé. Bạn không cần xác thực thêm phương thức số điện thoại. https://youtu.be/UITCdK_jOXM";
   const fields = ['work_date', 'target_role', 'person_name', 'site', 'unit', 'category', 'title', 'notes', 'status'];
   const showError = (message) => { $('errorNotice').textContent = message; $('errorNotice').hidden = !message; };
   function showAuth(user) {
@@ -74,9 +77,14 @@
     return { start: null, end: null };
   }
 
+  function extractThreadId(notes) {
+    const m = String(notes || '').match(/thread=([^\s;]+)/);
+    return m ? m[1] : '';
+  }
+
   function filtered() {
     const q = $('search').value.trim().toLocaleLowerCase('vi');
-    const roleVal = $('roleFilter')?.value;
+    const roleVal = currentRoleTab || $('roleFilter')?.value;
     const dateRange = getDateRange();
 
     return rows.filter(item => {
@@ -96,6 +104,12 @@
     });
   }
   function render() {
+    // Update Role Tab Badges (based on all rows before target_role filtering)
+    if ($('badgeAll')) $('badgeAll').textContent = rows.length;
+    if ($('badgeStudent')) $('badgeStudent').textContent = rows.filter(x => x.target_role === 'Sinh viên').length;
+    if ($('badgeTeacher')) $('badgeTeacher').textContent = rows.filter(x => x.target_role === 'Giảng viên').length;
+    if ($('badgeStaff')) $('badgeStaff').textContent = rows.filter(x => x.target_role === 'Nhân viên').length;
+
     const list = filtered(), n = list.length, done = list.filter(x => x.status === 'Hoàn thành').length;
     const hard = list.filter(x => x.category === 'Phần cứng').length;
     $('count').textContent = n;
@@ -129,9 +143,20 @@
       const isDone = item.status === 'Hoàn thành';
       const statusClass = isDone ? 'done' : item.status === 'Đang xử lý' ? 'progress' : 'new';
       const isChecked = selectedIds.has(item.id) ? 'checked' : '';
+      const isStudent = item.target_role === 'Sinh viên';
+      const threadId = extractThreadId(item.notes);
+      
       const toggleBtn = isDone 
-        ? `<button type="button" class="btn-status-toggle done" data-toggle-status="${item.id}" title="Bấm để đổi sang Đang xử lý">✔ Hoàn thành</button>`
-        : `<button type="button" class="btn-status-toggle pending" data-toggle-status="${item.id}" title="Bấm 1-chạm để Hoàn thành">⏳ ${escapeHtml(item.status || 'Chưa xong')}</button>`;
+        ? `<button type="button" class="btn-status-toggle done" data-toggle-status="${item.id}" title="Đã hoàn thành. Bấm để đổi sang Đang xử lý">✔ Hoàn thành</button>`
+        : `<button type="button" class="btn-status-toggle pending" data-toggle-status="${item.id}" title="Bấm 1-chạm để chuyển Hoàn thành">⏳ ${escapeHtml(item.status || 'Chưa xong')}</button>`;
+
+      const quickDoneBtn = !isDone 
+        ? `<button type="button" class="btn-complete" data-mark-done="${item.id}" title="Hoàn thành ngay ca này">✔ Xong</button>` 
+        : '';
+
+      const zaloBtn = isStudent 
+        ? `<button type="button" class="btn-zalo-reply" data-reply-zalo="${item.id}" title="${threadId ? 'Gửi tin phản hồi từ Zalo Hotline' : 'Gửi tin hoặc sao chép mẫu'}">💬 Gửi Zalo</button>` 
+        : '';
 
       return `<tr class="${isChecked ? 'row-selected' : ''}">
         <td style="text-align:center"><input type="checkbox" data-select-row="${item.id}" ${isChecked} aria-label="Chọn dòng"></td>
@@ -143,7 +168,14 @@
         <td><span class="tag ${item.category === 'Phần mềm' ? 'soft' : ''}">${escapeHtml(item.category)}</span></td>
         <td><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.notes)}</small></td>
         <td>${toggleBtn}</td>
-        <td><div class="actions"><button type="button" data-edit="${item.id}" aria-label="Sửa" title="Sửa">✎</button><button type="button" class="btn-delete" data-delete="${item.id}" aria-label="Xóa" title="Xóa">🗑</button></div></td>
+        <td>
+          <div class="actions">
+            ${quickDoneBtn}
+            ${zaloBtn}
+            <button type="button" data-edit="${item.id}" aria-label="Sửa" title="Sửa">✎</button>
+            <button type="button" class="btn-delete" data-delete="${item.id}" aria-label="Xóa" title="Xóa">🗑</button>
+          </div>
+        </td>
       </tr>`;
     }).join('');
     $('empty').hidden = n > 0;
@@ -283,6 +315,29 @@
       return;
     }
 
+    const markDone = event.target.closest('[data-mark-done]');
+    if (markDone && sessionUser) {
+      const item = rows.find(x => x.id === markDone.dataset.markDone);
+      if (!item) return;
+      markDone.disabled = true;
+      markDone.textContent = '...';
+      const { error } = await client.from('work_items').update({ status: 'Hoàn thành' }).eq('id', item.id);
+      if (error) {
+        showError('Lỗi cập nhật hoàn thành: ' + error.message);
+      } else {
+        item.status = 'Hoàn thành';
+        await load();
+      }
+      return;
+    }
+
+    const replyZalo = event.target.closest('[data-reply-zalo]');
+    if (replyZalo) {
+      const item = rows.find(x => x.id === replyZalo.dataset.replyZalo);
+      if (item) openReplyDialog(item);
+      return;
+    }
+
     if (edit) openEditor(rows.find(x => x.id === edit.dataset.edit));
     if (del && sessionUser) {
       const item = rows.find(x => x.id === del.dataset.delete);
@@ -303,7 +358,130 @@
     }
   });
 
-  // Checkbox selection handlers
+  // Bulk complete handler
+  $('completeBulk').addEventListener('click', async () => {
+    if (!sessionUser || selectedIds.size === 0) return;
+    const count = selectedIds.size;
+    if (!confirm(`Đánh dấu Hoàn thành cho ${count} mục đã chọn?`)) return;
+    const btn = $('completeBulk');
+    btn.disabled = true;
+    btn.textContent = 'Đang xử lý...';
+    try {
+      const ids = Array.from(selectedIds);
+      const { error } = await client.from('work_items').update({ status: 'Hoàn thành' }).in('id', ids).eq('owner_id', sessionUser.id);
+      if (error) {
+        showError('Lỗi cập nhật hoàn thành: ' + error.message);
+      } else {
+        selectedIds.clear();
+        await load();
+      }
+    } catch (err) {
+      showError('Lỗi hệ thống: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '✔ Đánh dấu Hoàn thành';
+    }
+  });
+
+  // Reply Dialog Handlers
+  function openReplyDialog(item) {
+    replyingItem = item;
+    const threadId = extractThreadId(item.notes);
+    $('replyRecipient').innerHTML = `Người nhận: <b>${escapeHtml(item.person_name || 'Sinh viên')}</b> • Thread: <code>${escapeHtml(threadId || 'Chưa gắn thread Zalo')}</code>`;
+    $('replyMessageText').value = ZALO_AUTH_TEMPLATE;
+    $('replyStatusMsg').textContent = '';
+    $('replyStatusMsg').style.color = '#ac4338';
+    $('replyDialog').showModal();
+  }
+
+  function closeReplyDialog() {
+    $('replyDialog').close();
+    replyingItem = null;
+  }
+
+  $('closeReplyDialog').onclick = closeReplyDialog;
+  $('cancelReplyDialog').onclick = closeReplyDialog;
+  $('btnReplyTpl').onclick = () => { $('replyMessageText').value = ZALO_AUTH_TEMPLATE; };
+  $('btnReplyCopy').onclick = () => {
+    navigator.clipboard.writeText($('replyMessageText').value);
+    $('replyStatusMsg').style.color = '#15803d';
+    $('replyStatusMsg').textContent = '✔ Đã sao chép nội dung tin nhắn vào bộ nhớ đệm.';
+  };
+
+  $('sendReplyBtn').addEventListener('click', async () => {
+    if (!replyingItem) return;
+    const msg = $('replyMessageText').value.trim();
+    if (!msg) {
+      $('replyStatusMsg').style.color = '#ac4338';
+      $('replyStatusMsg').textContent = 'Vui lòng nhập nội dung tin nhắn.';
+      return;
+    }
+    const threadId = extractThreadId(replyingItem.notes);
+    if (!threadId) {
+      $('replyStatusMsg').style.color = '#ac4338';
+      $('replyStatusMsg').textContent = 'Ca này chưa có thông tin thread Zalo (chỉ có thể bấm Sao chép để gửi thủ công).';
+      return;
+    }
+
+    if (!confirm(`Gửi tin nhắn từ Zalo Hotline đến "${replyingItem.person_name || 'sinh viên'}"?`)) return;
+
+    const btn = $('sendReplyBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang gửi qua Hotline (8766)...';
+    $('replyStatusMsg').textContent = '';
+
+    try {
+      const res = await fetch('http://127.0.0.1:8766/api/send-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          thread_id: threadId,
+          message: msg,
+          item_id: replyingItem.id
+        })
+      });
+      const r = await res.json();
+      if (r.ok) {
+        $('replyStatusMsg').style.color = '#15803d';
+        $('replyStatusMsg').textContent = '✅ Đã gửi tin Zalo thành công và đánh dấu Hoàn thành!';
+        setTimeout(async () => {
+          closeReplyDialog();
+          await load();
+        }, 1000);
+      } else {
+        $('replyStatusMsg').style.color = '#ac4338';
+        $('replyStatusMsg').textContent = '⚠️ Lỗi gửi: ' + (r.error || 'Kiểm tra phiên đăng nhập Hotline');
+      }
+    } catch (e) {
+      $('replyStatusMsg').style.color = '#ac4338';
+      $('replyStatusMsg').textContent = '⚠️ Không kết nối được bộ gửi Hotline cổng 8766. Hãy bấm "Sao chép" để dán gửi Zalo thủ công.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🚀 Gửi ngay từ Zalo Hotline';
+    }
+  });
+
+  // Role Tab Switching
+  $('roleTabs').addEventListener('click', event => {
+    const tabBtn = event.target.closest('[data-role-tab]');
+    if (!tabBtn) return;
+    document.querySelectorAll('.role-tab').forEach(b => b.classList.remove('active'));
+    tabBtn.classList.add('active');
+    currentRoleTab = tabBtn.dataset.roleTab;
+    if ($('roleFilter')) $('roleFilter').value = currentRoleTab;
+    render();
+  });
+
+  if ($('roleFilter')) {
+    $('roleFilter').addEventListener('change', () => {
+      const val = $('roleFilter').value;
+      currentRoleTab = val;
+      document.querySelectorAll('.role-tab').forEach(b => {
+        b.classList.toggle('active', b.dataset.roleTab === val);
+      });
+      render();
+    });
+  }
   $('items').addEventListener('change', event => {
     const cb = event.target.closest('[data-select-row]');
     if (!cb) return;
