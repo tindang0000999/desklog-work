@@ -161,18 +161,18 @@
       return `<tr class="${isChecked ? 'row-selected' : ''}">
         <td style="text-align:center"><input type="checkbox" data-select-row="${item.id}" ${isChecked} aria-label="Chọn dòng"></td>
         <td>${d}/${m}/${y}</td>
-        <td>${escapeHtml(item.person_name || 'Chưa ghi họ tên')}</td>
-        <td>${escapeHtml(item.target_role || 'Chưa ghi')}</td>
+        <td class="col-person"><b>${escapeHtml(item.person_name || 'Chưa ghi họ tên')}</b></td>
+        <td><span class="tag ${item.target_role === 'Sinh viên' ? 'soft' : ''}">${escapeHtml(item.target_role || 'Chưa ghi')}</span></td>
         <td>${escapeHtml(item.unit)}</td>
         <td><b>${escapeHtml(item.site)}</b></td>
         <td><span class="tag ${item.category === 'Phần mềm' ? 'soft' : ''}">${escapeHtml(item.category)}</span></td>
-        <td><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.notes)}</small></td>
+        <td class="col-notes"><b>${escapeHtml(item.title)}</b><small>${escapeHtml(item.notes)}</small></td>
         <td>${toggleBtn}</td>
         <td>
           <div class="actions">
             ${quickDoneBtn}
             ${zaloBtn}
-            <button type="button" data-edit="${item.id}" aria-label="Sửa" title="Sửa">✎</button>
+            <button type="button" class="btn-icon" data-edit="${item.id}" aria-label="Sửa" title="Sửa">✎</button>
             <button type="button" class="btn-delete" data-delete="${item.id}" aria-label="Xóa" title="Xóa">🗑</button>
           </div>
         </td>
