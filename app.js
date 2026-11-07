@@ -29,14 +29,70 @@
     rows = data || [];
     render();
   }
+  function getDateRange() {
+    const preset = $('datePreset')?.value;
+    const now = new Date();
+    const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    
+    if (preset === 'today') {
+      const today = fmt(now);
+      return { start: today, end: today };
+    }
+    if (preset === 'yesterday') {
+      const y = new Date(now);
+      y.setDate(y.getDate() - 1);
+      const yStr = fmt(y);
+      return { start: yStr, end: yStr };
+    }
+    if (preset === '7days') {
+      const past = new Date(now);
+      past.setDate(past.getDate() - 6);
+      return { start: fmt(past), end: fmt(now) };
+    }
+    if (preset === '30days') {
+      const past = new Date(now);
+      past.setDate(past.getDate() - 29);
+      return { start: fmt(past), end: fmt(now) };
+    }
+    if (preset === 'this_month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return { start: fmt(start), end: fmt(end) };
+    }
+    if (preset === 'last_month') {
+      const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { start: fmt(start), end: fmt(end) };
+    }
+    if (preset === 'custom') {
+      return {
+        start: $('startDate')?.value || null,
+        end: $('endDate')?.value || null
+      };
+    }
+    return { start: null, end: null };
+  }
+
   function filtered() {
     const q = $('search').value.trim().toLocaleLowerCase('vi');
-    return rows.filter(item =>
-      (!$('siteFilter').value || item.site === $('siteFilter').value) &&
-      (!$('categoryFilter').value || item.category === $('categoryFilter').value) &&
-      (!$('statusFilter').value || item.status === $('statusFilter').value) &&
-      (!q || [item.title, item.notes, item.person_name, item.target_role, item.unit].join(' ').toLocaleLowerCase('vi').includes(q))
-    );
+    const roleVal = $('roleFilter')?.value;
+    const dateRange = getDateRange();
+
+    return rows.filter(item => {
+      if (roleVal && item.target_role !== roleVal) return false;
+      if ($('siteFilter').value && item.site !== $('siteFilter').value) return false;
+      if ($('categoryFilter').value && item.category !== $('categoryFilter').value) return false;
+      if ($('statusFilter').value && item.status !== $('statusFilter').value) return false;
+      
+      if (dateRange.start && item.work_date < dateRange.start) return false;
+      if (dateRange.end && item.work_date > dateRange.end) return false;
+
+      if (q) {
+        const text = [item.title, item.notes, item.person_name, item.target_role, item.unit, item.site, item.category].join(' ').toLocaleLowerCase('vi');
+        if (!text.includes(q)) return false;
+      }
+      return true;
+    });
   }
   function render() {
     const list = filtered(), n = list.length, done = list.filter(x => x.status === 'Hoàn thành').length;
@@ -218,7 +274,22 @@
       if (error) showError('Không thể xóa. Kiểm tra quyền tài khoản.'); else await load();
     }
   });
-  for (const id of ['search', 'siteFilter', 'categoryFilter', 'statusFilter']) $(id).addEventListener(id === 'search' ? 'input' : 'change', render);
+
+  $('datePreset').addEventListener('change', () => {
+    const isCustom = $('datePreset').value === 'custom';
+    $('customDateRange').hidden = !isCustom;
+    if (isCustom && !$('startDate').value) {
+      const now = new Date().toISOString().slice(0, 10);
+      $('startDate').value = now;
+      $('endDate').value = now;
+    }
+    render();
+  });
+
+  for (const id of ['search', 'roleFilter', 'siteFilter', 'categoryFilter', 'statusFilter', 'startDate', 'endDate']) {
+    const el = $(id);
+    if (el) el.addEventListener(id === 'search' ? 'input' : 'change', render);
+  }
   client.auth.onAuthStateChange((_event, session) => {
     showAuth(session?.user || null);
     if (session?.user) void load();
