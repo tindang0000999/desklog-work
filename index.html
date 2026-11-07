@@ -13,7 +13,9 @@
 .chart{display:grid;gap:14px}.barrow{display:grid;grid-template-columns:80px 1fr 28px;gap:10px;align-items:center;font-size:12px;font-weight:700}.track{height:12px;background:#edf3ef;border-radius:40px;overflow:hidden}.fill{height:100%;background:#299e94;border-radius:40px}.fill.gold{background:#e3a84b}.fill.blue{background:#5d9ebd}.split{display:flex;gap:20px;align-items:center}.ring{width:116px;height:116px;border-radius:50%;background:conic-gradient(#168078 0 var(--pct),#e8ac50 var(--pct) 100%);display:grid;place-items:center;flex:none}.ring:after{content:attr(data-total);background:#fff;border-radius:50%;height:82px;width:82px;display:grid;place-items:center;font-size:23px;font-weight:800}.legend{font-size:12px;line-height:2}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#168078;margin-right:7px}.dot.gold{background:#e8ac50}
 .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:10px}
 .table{border-collapse:collapse;width:100%;min-width:1180px}
-.table th{text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:11px 9px;border-bottom:1px solid var(--line);background:#f9fbfb;white-space:nowrap}
+.table th{position:relative;text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;padding:11px 9px;border-bottom:1px solid var(--line);background:#f9fbfb;white-space:nowrap;user-select:none}
+.col-resizer{position:absolute;top:0;right:0;width:7px;bottom:0;cursor:col-resize;user-select:none;touch-action:none;z-index:3}
+.col-resizer:hover,.col-resizer.resizing{background:var(--teal);opacity:0.65}
 .table td{padding:10px 9px;font-size:12.5px;border-bottom:1px solid #edf1ef;vertical-align:top;line-height:1.45}
 .table td.col-notes{word-break:break-word;overflow-wrap:anywhere}
 .table td.col-notes small{display:block;color:var(--muted);margin-top:4px;font-size:11.5px;line-height:1.45;max-height:110px;overflow-y:auto;background:#f8faf9;padding:6px 8px;border-radius:6px;border:1px solid #e8eeec}
@@ -72,16 +74,16 @@
   </div>
 </div>
 <div class="tablewrap"><table class="table"><thead><tr>
-  <th style="width:36px;text-align:center"><input type="checkbox" id="selectAll" aria-label="Chọn tất cả"></th>
-  <th style="width:90px">Ngày</th>
-  <th style="width:170px">Người được hỗ trợ</th>
-  <th style="width:105px">Đối tượng</th>
-  <th style="width:140px">Đơn vị</th>
-  <th style="width:75px">Cơ sở</th>
-  <th style="width:100px">Loại</th>
-  <th>Công việc / Ghi chú</th>
-  <th style="width:130px">Trạng thái</th>
-  <th style="width:205px">Thao tác</th>
+  <th data-col="select" style="width:36px;text-align:center"><input type="checkbox" id="selectAll" aria-label="Chọn tất cả"><div class="col-resizer"></div></th>
+  <th data-col="date" style="width:90px">Ngày<div class="col-resizer"></div></th>
+  <th data-col="person" style="width:170px">Người được hỗ trợ<div class="col-resizer"></div></th>
+  <th data-col="role" style="width:105px">Đối tượng<div class="col-resizer"></div></th>
+  <th data-col="unit" style="width:140px">Đơn vị<div class="col-resizer"></div></th>
+  <th data-col="site" style="width:75px">Cơ sở<div class="col-resizer"></div></th>
+  <th data-col="category" style="width:100px">Loại<div class="col-resizer"></div></th>
+  <th data-col="notes">Công việc / Ghi chú<div class="col-resizer"></div></th>
+  <th data-col="status" style="width:130px">Trạng thái<div class="col-resizer"></div></th>
+  <th data-col="actions" style="width:205px">Thao tác<div class="col-resizer"></div></th>
 </tr></thead><tbody id="items"></tbody></table></div><p class="muted" id="empty" hidden>Chưa có công việc theo bộ lọc hiện tại.</p></section><p class="foot">Dữ liệu được lưu trong dự án Supabase của anh, có kiểm soát quyền theo tài khoản đăng nhập. Không có dữ liệu công việc trong mã GitHub.</p></section></main>
 
 <dialog id="replyDialog" style="border:0;border-radius:16px;padding:0;width:min(580px,calc(100vw - 24px));box-shadow:0 25px 70px #102c3966">
