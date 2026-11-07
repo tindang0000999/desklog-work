@@ -461,7 +461,82 @@
     }
   });
 
-  // Role Tab Switching
+  // Column Resizing & Persistence
+  const COL_STORAGE_KEY = 'desklog_column_widths_v1';
+  function getSavedColumnWidths() {
+    try {
+      return JSON.parse(localStorage.getItem(COL_STORAGE_KEY) || '{}');
+    } catch {
+      return {};
+    }
+  }
+
+  function applySavedColumnWidths() {
+    const saved = getSavedColumnWidths();
+    document.querySelectorAll('.table th[data-col]').forEach(th => {
+      const col = th.dataset.col;
+      if (saved[col]) {
+        th.style.width = saved[col] + 'px';
+      }
+    });
+  }
+
+  function initColumnResizers() {
+    applySavedColumnWidths();
+    const table = document.querySelector('.table');
+    if (!table) return;
+
+    let activeTh = null;
+    let startX = 0;
+    let startWidth = 0;
+    let activeResizer = null;
+
+    table.addEventListener('mousedown', event => {
+      const resizer = event.target.closest('.col-resizer');
+      if (!resizer) return;
+      event.preventDefault();
+      activeResizer = resizer;
+      activeTh = resizer.closest('th');
+      if (!activeTh) return;
+
+      activeResizer.classList.add('resizing');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      startX = event.pageX;
+      startWidth = activeTh.offsetWidth;
+
+      function onMouseMove(e) {
+        if (!activeTh) return;
+        const diff = e.pageX - startX;
+        const newWidth = Math.max(36, startWidth + diff);
+        activeTh.style.width = newWidth + 'px';
+      }
+
+      function onMouseUp() {
+        if (activeResizer) activeResizer.classList.remove('resizing');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+
+        if (activeTh && activeTh.dataset.col) {
+          const saved = getSavedColumnWidths();
+          saved[activeTh.dataset.col] = activeTh.offsetWidth;
+          try {
+            localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(saved));
+          } catch (e) {
+            console.warn('Cannot save col widths:', e);
+          }
+        }
+        activeTh = null;
+        activeResizer = null;
+      }
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    });
+  }
   $('roleTabs').addEventListener('click', event => {
     const tabBtn = event.target.closest('[data-role-tab]');
     if (!tabBtn) return;
@@ -566,4 +641,5 @@
     if (error) showError('Không thể kiểm tra phiên đăng nhập.');
     else { showAuth(data.session?.user || null); if (data.session?.user) void load(); }
   });
+  initColumnResizers();
 })();
